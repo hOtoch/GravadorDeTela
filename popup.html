@@ -1,0 +1,50 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link rel="stylesheet" href="style.css">
+    <title>Screen Recorder</title>
+</head>
+<body>
+    <h1>Screen Recorder</h1>
+    
+    <label>
+        <input type="checkbox" id="record-webcam">
+        Gravar Webcam
+    </label>
+    <br>
+    <label>
+        <input type="checkbox" id="record-audio">
+        Gravar Áudio
+    </label>
+    <br>
+    <label for="webcam-device">Selecione a Webcam:</label>
+    <select id="webcam-device"></select>
+    <br>
+    <label for="microphone-device">Selecione o Microfone:</label>
+    <select id="microphone-device"></select>
+    <br>
+    <label for="webcam-size">Tamanho da Webcam:</label>
+    <select id="webcam-size">
+        <option value="small">Pequeno</option>
+        <option value="medium">Médio</option>
+        <option value="large">Grande</option>
+    </select>
+    <br>
+    <label for="webcam-position">Posição da Webcam:</label>
+    <select id="webcam-position">
+        <option value="top-left">Superior Esquerda</option>
+        <option value="top-right">Superior Direita</option>
+        <option value="bottom-left">Inferior Esquerda</option>
+        <option value="bottom-right">Inferior Direita</option>
+    </select>
+    <br><br>
+    <div id="webcam-preview"></div>
+    <br>
+    <button id="start-recording">Iniciar Gravação</button>
+    <button id="stop-recording" disabled>Parar Gravação</button>
+
+    <script src="popup.js"></script>
+</body>
+</html>

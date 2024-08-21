@@ -1,0 +1,34 @@
+{
+  "manifest_version": 3,
+  "name": "Screen Recorder",
+  "description": "A simple screen recording extension.",
+  "version": "1.0",
+  "permissions": [
+    "desktopCapture",
+    "storage",
+    "downloads",
+    "activeTab",
+    "tabs",
+    "scripting",
+    "windows"
+  ],
+  "background": {
+    "service_worker": "background.js"
+  },
+  "action": {
+    "default_popup": "popup.html"
+  },
+  "content_scripts": [
+    {
+      "matches": ["<all_urls>"],
+      "js": ["content.js"]
+    }
+  ],
+  "icons": {
+    "48": "icon.png"
+  },
+  "options_page": "options.html",
+  "content_security_policy": {
+    "extension_pages": "script-src 'self'; object-src 'self';"
+  }
+}
