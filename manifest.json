@@ -5,6 +5,7 @@
   "version": "1.0",
   "permissions": [
     "desktopCapture",
+    "tabCapture",
     "storage",
     "downloads",
     "activeTab",
@@ -18,14 +19,19 @@
   "action": {
     "default_popup": "popup.html"
   },
+  "host_permissions": ["*://*/*"],
+  "web_accessible_resources": [{
+        "resources": ["icons/*.png","temporaryTab.html"],
+        "matches": ["<all_urls>"]
+    }],
   "content_scripts": [
     {
       "matches": ["<all_urls>"],
-      "js": ["content.js"]
+      "js": ["contentRecorder.js","contentTools.js"]
     }
   ],
   "icons": {
-    "48": "icon.png"
+    "48": "icons/icon.png"
   },
   "options_page": "options.html",
   "content_security_policy": {
