@@ -8,16 +8,15 @@ async function getStreams(recordWebcam, webcamDeviceId, recordAudio, microphoneD
 
     try{
         screenStream = await navigator.mediaDevices.getDisplayMedia({ video: true });
-        console.log('Tela capturada com sucesso.');
-
+   
         if (recordWebcam) {
             webcamStream = await navigator.mediaDevices.getUserMedia({ video: { deviceId: webcamDeviceId } });
-            console.log('Webcam acessada com sucesso.');
+            
         }
 
         if (recordAudio) {
             audioStream = await navigator.mediaDevices.getUserMedia({ audio: { deviceId: microphoneDeviceId } });
-            console.log('Áudio acessado com sucesso.');
+    
         }
 
     }catch(error){
@@ -28,9 +27,10 @@ async function getStreams(recordWebcam, webcamDeviceId, recordAudio, microphoneD
 }
 
 chrome.runtime.onMessage.addListener(async (message, sender, sendResponse) => {
-    console.log('Mensagem recebida no content.js:', message);
 
-    if (message.action === 'startRecording') {
+    if (message.action === 'startRecordingContent') {
+
+        console.log('startRecording no contentRecorder rodando');
 
         await getStreams(message.recordWebcam, message.webcamDevice, message.recordAudio, message.microphoneDevice);
     
@@ -43,6 +43,8 @@ chrome.runtime.onMessage.addListener(async (message, sender, sendResponse) => {
         ]);
     
         mediaRecorder = new MediaRecorder(combinedStream);
+
+        console.log('Novo MediaRecorder criado.');
         
         mediaRecorder.ondataavailable = (event) => {
             if (event.data.size > 0) {
@@ -54,10 +56,10 @@ chrome.runtime.onMessage.addListener(async (message, sender, sendResponse) => {
             const blob = new Blob(recordedChunks, { type: 'video/webm' });
             const videoUrl = URL.createObjectURL(blob);
             
-            // const downloadLink = document.createElement('a');
-            // downloadLink.href = videoUrl;
-            // downloadLink.download = 'gravacao.webm';
-            // downloadLink.click();
+            const downloadLink = document.createElement('a');
+            downloadLink.href = videoUrl;
+            downloadLink.download = 'gravacao.webm';
+            downloadLink.click();
 
         };
     
@@ -86,7 +88,7 @@ chrome.runtime.onMessage.addListener(async (message, sender, sendResponse) => {
             mediaRecorder = null;
             recordedChunks = [];
         }
-        // window.close();
+        window.close();
     }
 
 });

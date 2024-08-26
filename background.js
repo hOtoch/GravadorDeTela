@@ -1,5 +1,7 @@
 let tabCriada = null;
 let tabAtual = null;
+let onActivatedListener = null;
+let onUpdatedListener = null;
 
 let webcamState = {
     isRecording: false,
@@ -33,11 +35,7 @@ async function injectContentToolsScript(tabId){
                 target: { tabId: tab.id },
                 files: ['contentTools.js']
             });
-
-            console.log('Content script injetado com sucesso');
-
-        
-
+           
         }
     } catch (error) {
         console.error('Erro ao injetar o content script: ', error)
@@ -52,39 +50,68 @@ async function injectContentRecorderScript(tabId){
             files: ['contentRecorder.js']
         });
 
-        console.log('contentRecorder injetado com sucesso');
     } catch (error) {
         console.error('Erro ao injetar o contentRecorder : ', error)
     }
 }
 
 
-chrome.tabs.onActivated.addListener(async (activeInfo) => {
-    tabAtual = await getCurrentTab();
-    console.log("Nova aba: ", tabAtual)
-    await injectContentToolsScript(tabAtual.id);
 
-    await chrome.tabs.sendMessage(tabAtual.id, {
-        action: 'showButtons'
-    });
+async function registerOnActivatedListener(hasWebcam) {
+    onActivatedListener = async (activeInfo) => {
+        tabAtual = await getCurrentTab();
 
-    console.log(webcamState.isRecording, webcamState.webcamDeviceId, webcamState.webcamSize, webcamState.webcamPosition);
+        const [isInjected] = await chrome.scripting.executeScript({
+            target: { tabId: tabAtual.id },
+            func: () => !!window.contentToolsInjected,
+        });
 
-    await chrome.tabs.sendMessage(tabAtual.id, {
-        action: 'showWebcam',
-        webcamSize: webcamState.webcamSize,
-        webcamPosition: webcamState.webcamPosition,
-        webcamDeviceId: webcamState.webcamDevice
-    });
+        const [webcamInjected] = await chrome.scripting.executeScript({
+            target: { tabId: tabAtual.id },
+            func: () => !!window.webcamInjected,
+        });
 
+        const [buttonsInjected] = await chrome.scripting.executeScript({
+            target: { tabId: tabAtual.id },
+            func: () => !!window.buttonsInjected,
+        });
 
-})
+        console.log('isInjected:', isInjected);
+
+        if(!isInjected.result){
+
+            console.log('Injetando contentTools na aba:', tabAtual.id);
+
+            await injectContentToolsScript(tabAtual.id);
+        }
+
+        if(hasWebcam && !webcamInjected.result){
+
+            await chrome.tabs.sendMessage(tabAtual.id, {
+                action: 'showWebcam',
+                webcamSize: webcamState.webcamSize,
+                webcamPosition: webcamState.webcamPosition,
+                webcamDeviceId: webcamState.webcamDeviceId
+            });
+        }
+
+        if(!buttonsInjected.result){
+
+            await chrome.tabs.sendMessage(tabAtual.id, {
+                action: 'showButtons'
+            });
+        }
+    };
+
+    chrome.tabs.onActivated.addListener(onActivatedListener);
+}
 
 
 chrome.runtime.onMessage.addListener(async (message, sender, sendResponse) => {
-    console.log('Mensagem recebida no background.js:', message);
 
     if (message.action === 'startRecording') {
+
+        await registerOnActivatedListener(message.recordWebcam);
 
         if(message.recordWebcam){
             webcamState.isRecording = true;
@@ -93,17 +120,16 @@ chrome.runtime.onMessage.addListener(async (message, sender, sendResponse) => {
             webcamState.webcamPosition = message.webcamPosition;
         }
 
-        console.log('Criando nova aba...');
 
         chrome.tabs.create({url: chrome.runtime.getURL('temporaryTab.html'), active : true}, async (newTab) => {
             tabCriada = newTab;
 
-            chrome.tabs.onUpdated.addListener(async (tabId, changeInfo, tab) => {
+            onUpdatedListener = async (tabId, changeInfo, tab) => {
 
                 if( tabId === tabCriada.id && changeInfo.status === 'complete'){
 
                     chrome.tabs.sendMessage(tabCriada.id, {
-                        action: 'startRecording',
+                        action: 'startRecordingContent',
                         recordWebcam: message.recordWebcam,
                         webcamDevice: message.webcamDevice,
                         recordAudio: message.recordAudio,
@@ -111,29 +137,54 @@ chrome.runtime.onMessage.addListener(async (message, sender, sendResponse) => {
 
                     });
                 }
-            });
+            }
+
+            chrome.tabs.onUpdated.addListener(onUpdatedListener);
+            
         });
 
     }
 
     
     else if (message.action === 'stopRecording') {
+        console.log('STOPRECORDING EXECUTANDO')
         
         if (tabCriada && tabCriada.id){
-            chrome.tabs.sendMessage(tabCriada.id, { action: 'stopMediaRecorder' });
+            await chrome.tabs.sendMessage(tabCriada.id, { action: 'stopMediaRecorder' });
+            chrome.tabs.onUpdated.removeListener(onUpdatedListener);
+            onUpdatedListener = null;
         }
 
-        chrome.tabs.query({}, function(tabs) {
+        console.log('tabAtual:', tabAtual);
+
+        if (tabAtual && tabAtual.id){
+            await chrome.tabs.sendMessage(tabAtual.id, { action: 'removeTools', tab: tabAtual.title });
+        }
+
+        chrome.tabs.query({}, async function(tabs) {
             console.log('tabs:', tabs);
             for (let i = 0; i < tabs.length; i++) {
-                chrome.tabs.sendMessage(tabs[i].id, { action: 'removeTools' });
+
+                try {
+                    await chrome.tabs.sendMessage(tabs[i].id, { action: 'removeTools', tabId: tabs[i].title });
+                } catch (error) {
+                    console.error("Erro ao enviar mensagem para tab:", tabs[i].title, error);
+                }
             }
-        })
+        });
+        
        
         webcamState.isRecording = false;
 
-        console.log('Gravação parada.');
+        if (onActivatedListener) {
+            chrome.tabs.onActivated.removeListener(onActivatedListener);
+            onActivatedListener = null;
+        }
+
+
     }
 
 });
+
+
 

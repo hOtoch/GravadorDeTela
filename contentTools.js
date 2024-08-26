@@ -1,3 +1,4 @@
+
 function createButton(iconPath, altText, buttonsDiv) {
     const button = document.createElement('button');
     button.classList.add('ButtonRecorder');
@@ -25,6 +26,7 @@ async function addButtonsToPage() {
     const restartButton =createButton('icons/recarregar.png', 'Reiniciar gravação', buttonsDiv);
 
     stopButton.addEventListener('click', () => {
+        console.log("ENVIANDO MENSAGEM STOP RECORDING")
         chrome.runtime.sendMessage({ action: 'stopRecording' });
     })
 
@@ -66,6 +68,7 @@ async function addButtonsToPage() {
 // função para adicionar o vídeo da webcam ao DOM da página
 async function addWebcamToPage(webcamDeviceId, webcamSize, webcamPosition) {
     const webcamVideo = document.createElement('video');
+    webcamVideo.id = 'webcamVideoRecorder';
     webcamVideo.srcObject = await navigator.mediaDevices.getUserMedia({ video: { deviceId: webcamDeviceId } });
     webcamVideo.autoplay = true;
 
@@ -114,12 +117,10 @@ async function addWebcamToPage(webcamDeviceId, webcamSize, webcamPosition) {
 
 
 chrome.runtime.onMessage.addListener(async (message, sender, sendResponse) => {
-    console.log('Mensagem recebida no contentTools.js:', message);
     if (message.action === 'showWebcam') {
+        console.log('Adicionando webcam à página:', message.webcamDeviceId, message.webcamSize, message.webcamPosition);
+        window.webcamInjected = true;
 
-        window.localStorage.setItem('webcamInjected', 'true');
-
-        console.log('Adicionando webcam à página...');
         addWebcamToPage(message.webcamDeviceId, message.webcamSize, message.webcamPosition)
             .then(() => {
                 sendResponse({ status: 'webcam added to page' });
@@ -134,9 +135,12 @@ chrome.runtime.onMessage.addListener(async (message, sender, sendResponse) => {
 
     else if(message.action === 'showButtons') {
 
-        window.localStorage.setItem('buttonsInjected', 'true');
+        if(!window.contentToolsInjected) {
+            window.contentToolsInjected = true;
+        }
 
-        console.log('Adicionando botões à página...');
+        window.buttonsInjected = true;
+
         addButtonsToPage().then(() => {
             sendResponse({ status: 'buttons added to page' });
         }
@@ -149,25 +153,35 @@ chrome.runtime.onMessage.addListener(async (message, sender, sendResponse) => {
     }
 
     else if (message.action === 'removeTools') {
-        console.log("BBBBBBBBBBBBBBBBBBBBBBBBBBBB");
+
+        if(window.contentToolsInjected){
+            console.log("Removendo ferramentas da página, tab: ", message.tab);
        
-        const webcamVideo = document.querySelector('video');
-        if(webcamVideo){
-            webcamVideo.remove();
-        }else{
-            console.log("Não encontrou a webcam");
-        }
-        window.localStorage.removeItem('webcamInjected');
-    
+            const webcamVideo = document.querySelector('#webcamVideoRecorder');
+            if(webcamVideo){
+                console.log("Webcam encontrada, tab: ", message.tab);
+                webcamVideo.remove();
+            }else{
+                console.log("Webcam não encontrada, tab: ", message.tab);
+            }
         
-        const buttonsDiv = document.querySelector('#recorderButtonsDiv');
-        if(buttonsDiv){
-            buttonsDiv.remove();
-        }else{
-            console.log("Não encontrou os botões");
+            
+            const buttonsDiv = document.querySelector('#recorderButtonsDiv');
+
+            if(buttonsDiv){
+                buttonsDiv.remove();
+            }
+
+            if(window.localStream) {
+                window.localStream.getTracks().forEach(track => track.stop());
+            }
+
+            window.buttonsInjected = false;
+            window.webcamInjected = false;
+            // window.contentToolsInjected = false;
         }
+
         
-        window.localStorage.removeItem('buttonsInjected');
         
     }
 
